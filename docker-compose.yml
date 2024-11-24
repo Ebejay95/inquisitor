@@ -1,0 +1,58 @@
+services:
+  mary:
+    image: stilliard/pure-ftpd
+    container_name: mary
+    environment:
+      - PUBLICHOST=192.168.1.10
+      - FTP_USER_NAME=test
+      - FTP_USER_PASS=1234
+      - FTP_USER_HOME=/home/test
+      - FTP_USER_UID=1000
+      - FTP_USER_GID=1000
+      - ADDED_FLAGS=-l puredb:/etc/pure-ftpd/pureftpd.pdb -E -j -R -p 30000:30009 -A
+    networks:
+      mitm_net:
+        ipv4_address: 192.168.1.10
+    ports:
+      - "2121:21"
+      - "30000-30009:30000-30009"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "21"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - ./dummydir:/home/test/ftp_files
+    command: >
+      sh -c "
+      chown -R 1000:1000 /home/test/ftp_files &&
+      chmod -R 755 /home/test/ftp_files &&
+      /run.sh"
+
+  bob:
+    build:
+      context: ./bob
+    container_name: bob
+    tty: true
+    networks:
+      mitm_net:
+        ipv4_address: 192.168.1.20
+
+  inquisitor:
+    build:
+      context: ./inquisitor
+    container_name: inquisitor
+    cap_add:
+      - NET_ADMIN
+    tty: true
+    networks:
+      mitm_net:
+        ipv4_address: 192.168.1.30
+
+networks:
+  mitm_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
